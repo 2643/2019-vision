@@ -1,21 +1,67 @@
 import cv2
+import subprocess
 import math
 import numpy
+from symbol import except_clause
+
+def erode(img, size, iterations):
+    kernel = numpy.ones(size,numpy.uint8)
+    return cv2.erode(img,kernel, iterations)
+
+def dilate(img, size, iterations):
+    kernel = numpy.ones(size,numpy.uint8)
+    return cv2.dilate(img,kernel,iterations)
+
+def close(img):
+    closed = erode(img, (5,5), 2)
+    # closed = dilate(closed, (10,10), 1)
+    return closed
+
+def convexHull(input_contours):
+    output = []
+    for contour in input_contours:
+        output.append(cv2.convexHull(contour))
+    return output
+
+def getCentroid(contour):
+    M = cv2.moments(contour)
+    # calculate x,y coordinate of center
+    if M["m00"] != 0:
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+    else:
+        cX, cY = 0, 0
+    return (cX, cY)
+
+
+def getAngle(x, y, xsize, ysize):
+    return ((x/xsize) -0.5, (y/ysize) -0.5)
 
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FPS, 30);
-cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0);
-# cap.set(cv2.CAP_PROP_EXPOSURE, 0.5);
-# cap.set(cv2.CAP_PROP_GAIN, 0.5);
+subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
+subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
+
 
 while True:
     frame = cap.read()[1]
-    blur = cv2.medianBlur(frame, 21)
-    hsv_thresh = cv2.inRange(cv2.cvtColor(blur, cv2.COLOR_BGR2HSV), (0, 0, 180), (180, 60, 255))
-    cv2.imshow('frame3', hsv_thresh)
+    hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (110, 165, 0), (130, 255, 43))
+    closed = close(hsv_thresh)
+    contours, hierarchy = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    hulls = convexHull(contours)
     
+    for contour in hulls:
+        frame = cv2.drawContours(frame, [contour], 0, (0,255,0), 1)
+        centroid = getCentroid(contour)
+        print(getAngle(cap, centroid))
+        cv2.circle(frame, centroid, 3, (255,0,0), thickness=1, lineType=8)
+
+    
+    cv2.imshow('frame3', closed)
+    cv2.imshow('frame2', frame)
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        break
 
 # When everything done, release the capture
 cap.release()
