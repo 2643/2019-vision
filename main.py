@@ -35,10 +35,10 @@ def getCentroid(contour):
 
 
 def getAngle(x, y, xsize, ysize):
-    return ((x/xsize) -0.5, (y/ysize) -0.5)
+    return ((float(x)/float(xsize)) -0.5, (float(y)/float(ysize)) -0.5)
 
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FPS, 30);
+cap.set(cv2.CAP_PROP_FPS, 30)
 subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
 subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
 
