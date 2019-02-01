@@ -4,6 +4,9 @@ import math
 import numpy
 from symbol import except_clause
 
+def opencvVersion():
+    return int(cv2.__version__.split(".")[0])
+
 def erode(img, size, iterations):
     kernel = numpy.ones(size,numpy.uint8)
     return cv2.erode(img,kernel, iterations)
@@ -47,7 +50,11 @@ while True:
     frame = cap.read()[1]
     hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (110, 165, 0), (130, 255, 43))
     closed = close(hsv_thresh)
-    contours, hierarchy = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    if opencvVersion() == 3:
+        _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
+    else:
+        contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
     hulls = convexHull(contours)
     
     for contour in hulls:
