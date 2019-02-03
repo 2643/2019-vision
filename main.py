@@ -16,8 +16,9 @@ def dilate(img, size, iterations):
     return cv2.dilate(img,kernel,iterations)
 
 def close(img):
-    closed = erode(img, (5,5), 2)
-    # closed = dilate(closed, (10,10), 1)
+    closed = dilate(img, (5,5), 2)
+    closed = erode(closed, (5,5), 2)
+    closed = erode(closed, (5,5), 2)
     return closed
 
 def convexHull(input_contours):
@@ -36,6 +37,21 @@ def getCentroid(contour):
         cX, cY = 0, 0
     return (cX, cY)
 
+def slope(x1, y1, x2, y2):
+    #swap if less
+    if x1 > x2:
+        x1, x2 = x2, x1
+        y1, y2 = y2, y1 
+    
+    return float(x2 -x1)/(y2 - y1)
+
+def getRectangleTiltSlope(rect):
+    if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) >
+        math.hypot(rect[1][0] - rect[1][0], rect[2][1] - rect[2][1]):
+        return slope(rect[0][0], rect[0][1], rect[1][0], rect[1][1])
+    else:
+        return slope(rect[1][0], rect[1][1], rect[2][0], rect[2][1])
+
 
 def getAngle(x, y, xsize, ysize):
     return ((float(x)/float(xsize)) -0.5, (float(y)/float(ysize)) -0.5)
@@ -43,7 +59,7 @@ def getAngle(x, y, xsize, ysize):
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FPS, 30)
 subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
+subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=2", "--device=/dev/video0"])
 
 
 while True:
@@ -57,10 +73,18 @@ while True:
 
     hulls = convexHull(contours)
     
+    for contour in hulls: 
+        rect = cv2.minAreaRect(contour)
+        
+        box = cv2.boxPoints(rect)
+        box = numpy.int0(box)
+        im = cv2.drawContours(frame,[box],0,(0,0,255),2)
+
+
+    
     for contour in hulls:
         frame = cv2.drawContours(frame, [contour], 0, (0,255,0), 1)
         centroid = getCentroid(contour)
-        print(getAngle(cap, centroid))
         cv2.circle(frame, centroid, 3, (255,0,0), thickness=1, lineType=8)
 
     
