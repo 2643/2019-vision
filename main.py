@@ -15,9 +15,13 @@ def dilate(img, size, iterations):
     kernel = numpy.ones(size,numpy.uint8)
     return cv2.dilate(img,kernel,iterations)
 
+def open(img):
+    opened = erode(img, (5,5), 2)
+    opened = dilate(opened, (5,5), 2)
+    return opened
+
 def close(img):
     closed = dilate(img, (5,5), 2)
-    closed = erode(closed, (5,5), 2)
     closed = erode(closed, (5,5), 2)
     return closed
 
@@ -46,8 +50,7 @@ def slope(x1, y1, x2, y2):
     return float(x2 -x1)/(y2 - y1)
 
 def getRectangleTiltSlope(rect):
-    if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) >
-        math.hypot(rect[1][0] - rect[1][0], rect[2][1] - rect[2][1]):
+    if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) > math.hypot(rect[1][0] - rect[1][0], rect[2][1] - rect[2][1]):
         return slope(rect[0][0], rect[0][1], rect[1][0], rect[1][1])
     else:
         return slope(rect[1][0], rect[1][1], rect[2][0], rect[2][1])
@@ -59,12 +62,12 @@ def getAngle(x, y, xsize, ysize):
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FPS, 30)
 subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=2", "--device=/dev/video0"])
+subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
 
 
 while True:
     frame = cap.read()[1]
-    hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (110, 165, 0), (130, 255, 43))
+    hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (120, 250, 10), (130, 255, 60))
     closed = close(hsv_thresh)
     if opencvVersion() == 3:
         _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
