@@ -50,7 +50,7 @@ def slope(x1, y1, x2, y2):
     return float(x2 -x1)/(y2 - y1)
 
 def getRectangleTiltSlope(rect):
-    if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) > math.hypot(rect[1][0] - rect[1][0], rect[2][1] - rect[2][1]):
+    if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) < math.hypot(rect[1][0] - rect[2][0], rect[1][1] - rect[2][1]):
         return slope(rect[0][0], rect[0][1], rect[1][0], rect[1][1])
     else:
         return slope(rect[1][0], rect[1][1], rect[2][0], rect[2][1])
@@ -78,19 +78,12 @@ while True:
     
     for contour in hulls: 
         rect = cv2.minAreaRect(contour)
-        
         box = cv2.boxPoints(rect)
         box = numpy.int0(box)
         im = cv2.drawContours(frame,[box],0,(0,0,255),2)
+        print(getRectangleTiltSlope(box))
 
 
-    
-    for contour in hulls:
-        frame = cv2.drawContours(frame, [contour], 0, (0,255,0), 1)
-        centroid = getCentroid(contour)
-        cv2.circle(frame, centroid, 3, (255,0,0), thickness=1, lineType=8)
-
-    
     cv2.imshow('frame3', closed)
     cv2.imshow('frame2', frame)
 
