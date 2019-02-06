@@ -2,7 +2,7 @@ import cv2
 import subprocess
 import math
 import numpy
-from symbol import except_clause
+from networktables import NetworkTables
 
 def opencvVersion():
     return int(cv2.__version__.split(".")[0])
@@ -59,38 +59,42 @@ def getRectangleTiltSlope(rect):
 def getAngle(x, y, xsize, ysize):
     return ((float(x)/float(xsize)) -0.5, (float(y)/float(ysize)) -0.5)
 
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FPS, 30)
-subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
+def main():
+
+    NetworkTables.initialize(server="roborio-2643-frc.local")
+    table = NetworkTables.getTable("vision")
+
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+    subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
+    subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
+
+    while True:
+        frame = cap.read()[1]
+        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (120, 250, 3), (130, 255, 80))
+        closed = close(hsv_thresh)
+        if opencvVersion() == 3:
+            _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
+        else:
+            contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        
+
+        hulls = convexHull(contours)
+        for contour in hulls: 
+            if cv2.contourArea(contour) > 100:
+                boundingBox = numpy.int0(cv2.boxPoints(cv2.minAreaRect(contour)))
+                table.putNumber("centroid", getCentroid(contour))
 
 
-while True:
-    frame = cap.read()[1]
-    hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (120, 250, 10), (130, 255, 60))
-    closed = close(hsv_thresh)
-    if opencvVersion() == 3:
-        _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
-    else:
-        contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.imshow('frame3', closed)
+        cv2.imshow('frame2', frame)
 
-    hulls = convexHull(contours)
-    
-    for contour in hulls: 
-        rect = cv2.minAreaRect(contour)
-        box = cv2.boxPoints(rect)
-        box = numpy.int0(box)
-        im = cv2.drawContours(frame,[box],0,(0,0,255),2)
-        print(getRectangleTiltSlope(box))
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    # When everything done, release the capture
+    cap.release()
+    cv2.destroyAllWindows()
 
 
-    cv2.imshow('frame3', closed)
-    cv2.imshow('frame2', frame)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-# When everything done, release the capture
-cap.release()
-cv2.destroyAllWindows()
+main()
 
