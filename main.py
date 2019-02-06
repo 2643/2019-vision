@@ -29,7 +29,7 @@ def convexHull(input_contours):
     output = []
     for contour in input_contours:
         output.append(cv2.convexHull(contour))
-    return output
+        return output
 
 def getCentroid(contour):
     M = cv2.moments(contour)
@@ -39,14 +39,14 @@ def getCentroid(contour):
         cY = int(M["m01"] / M["m00"])
     else:
         cX, cY = 0, 0
-    return (cX, cY)
+        return (cX, cY)
 
 def slope(x1, y1, x2, y2):
     #swap if less
     if x1 > x2:
         x1, x2 = x2, x1
         y1, y2 = y2, y1 
-    
+
     return float(x2 -x1)/(y2 - y1)
 
 def getRectangleTiltSlope(rect):
@@ -59,10 +59,20 @@ def getRectangleTiltSlope(rect):
 def getAngle(x, y, xsize, ysize):
     return ((float(x)/float(xsize)) -0.5, (float(y)/float(ysize)) -0.5)
 
+
+def handleRectangle(contour, rectEntry): 
+    
+    boundingBox = numpy.int0(cv2.boxPoints(cv2.minAreaRect(contour)))
+
+    rectEntry.putNumber("centroid", getCentroid(contour)[1])
+    return
+
 def main():
 
     NetworkTables.initialize(server="roborio-2643-frc.local")
     table = NetworkTables.getTable("vision")
+
+    entry = table.
 
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FPS, 30)
@@ -77,23 +87,20 @@ def main():
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
         else:
             contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        
+
 
         hulls = convexHull(contours)
         for contour in hulls: 
             if cv2.contourArea(contour) > 100:
-                boundingBox = numpy.int0(cv2.boxPoints(cv2.minAreaRect(contour)))
-                table.putNumber("centroid", getCentroid(contour))
+                handleRectangle(contour, entry)
 
-
-        cv2.imshow('frame3', closed)
-        cv2.imshow('frame2', frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    # When everything done, release the capture
-    cap.release()
-    cv2.destroyAllWindows()
+        #cv2.imshow('frame3', closed)
+        #cv2.imshow('frame2', frame)
+        #if cv2.waitKey(1) & 0xFF == ord('q'):
+            #break
+            # When everything done, release the capture
+            cap.release()
+            cv2.destroyAllWindows()
 
 
 main()
