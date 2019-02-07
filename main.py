@@ -72,7 +72,6 @@ def main():
     NetworkTables.initialize(server="roborio-2643-frc.local")
     table = NetworkTables.getTable("vision")
 
-    entry = table.
 
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FPS, 30)
@@ -92,7 +91,7 @@ def main():
         hulls = convexHull(contours)
         for contour in hulls: 
             if cv2.contourArea(contour) > 100:
-                handleRectangle(contour, entry)
+                handleRectangle(contour,table)
 
         #cv2.imshow('frame3', closed)
         #cv2.imshow('frame2', frame)
