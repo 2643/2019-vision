@@ -2,7 +2,7 @@ import cv2
 import subprocess
 import math
 import numpy
-from symbol import except_clause
+from networktables import NetworkTables
 
 def opencvVersion():
     return int(cv2.__version__.split(".")[0])
@@ -15,9 +15,14 @@ def dilate(img, size, iterations):
     kernel = numpy.ones(size,numpy.uint8)
     return cv2.dilate(img,kernel,iterations)
 
+def open(img):
+    opened = erode(img, (5,5), 2)
+    opened = dilate(opened, (5,5), 2)
+    return opened
+
 def close(img):
-    closed = erode(img, (5,5), 2)
-    # closed = dilate(closed, (10,10), 1)
+    closed = dilate(img, (5,5), 2)
+    closed = erode(closed, (5,5), 2)
     return closed
 
 def convexHull(input_contours):
@@ -34,43 +39,75 @@ def getCentroid(contour):
         cY = int(M["m01"] / M["m00"])
     else:
         cX, cY = 0, 0
-    return (cX, cY)
+        return (cX, cY)
+
+def slope(x1, y1, x2, y2):
+    #swap if less
+    if x1 > x2:
+        x1, x2 = x2, x1
+        y1, y2 = y2, y1 
+
+    return float(x2 -x1)/(y2 - y1)
+
+def getRectangleTiltSlope(rect):
+    if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) < math.hypot(rect[1][0] - rect[2][0], rect[1][1] - rect[2][1]):
+        return slope(rect[0][0], rect[0][1], rect[1][0], rect[1][1])
+    else:
+        return slope(rect[1][0], rect[1][1], rect[2][0], rect[2][1])
 
 
 def getAngle(x, y, xsize, ysize):
     return ((float(x)/float(xsize)) -0.5, (float(y)/float(ysize)) -0.5)
 
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FPS, 30)
-subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
 
-
-while True:
-    frame = cap.read()[1]
-    hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (110, 165, 0), (130, 255, 43))
-    closed = close(hsv_thresh)
-    if opencvVersion() == 3:
-        _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
-    else:
-        contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-
-    hulls = convexHull(contours)
+def handleRectangle(contour, rectEntry): 
     
-    for contour in hulls:
-        frame = cv2.drawContours(frame, [contour], 0, (0,255,0), 1)
-        centroid = getCentroid(contour)
-        print(getAngle(cap, centroid))
-        cv2.circle(frame, centroid, 3, (255,0,0), thickness=1, lineType=8)
+    boundingBox = numpy.int0(cv2.boxPoints(cv2.minAreaRect(contour)))
 
-    
-    cv2.imshow('frame3', closed)
-    cv2.imshow('frame2', frame)
+    rectEntry.putNumber("centroid", getCentroid(contour)[1])
+    return
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+def main():
 
-# When everything done, release the capture
-cap.release()
-cv2.destroyAllWindows()
+    NetworkTables.initialize(server="roborio-2643-frc.local")
+    table = NetworkTables.getTable("vision")
+
+    subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
+    subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
+
+    cap = cv2.VideoCapture(-1)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
+    while True:
+        retval, frame = cap.read()
+        if retval is not True:
+            print("pranked")
+        else:
+            print("ok")
+
+
+        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (120, 250, 10), (130, 255, 60))
+        closed = close(hsv_thresh)
+        if opencvVersion() == 3:
+            _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
+        else:
+            contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+
+        hulls = convexHull(contours)
+        for contour in hulls: 
+            if cv2.contourArea(contour) > 100:
+                handleRectangle(contour,table)
+
+        #cv2.imshow('frame3', closed)
+        #cv2.imshow('frame2', frame)
+        #if cv2.waitKey(1) & 0xFF == ord('q'):
+            #break
+
+    # When everything done, release the capture
+    cap.release()
+    cv2.destroyAllWindows()
+        
+
+main()
 
