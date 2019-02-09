@@ -1,4 +1,5 @@
 import cv2
+import time
 import subprocess
 import math
 import numpy
@@ -25,11 +26,8 @@ def close(img):
     closed = erode(closed, (5,5), 2)
     return closed
 
-def convexHull(input_contours):
-    output = []
-    for contour in input_contours:
-        output.append(cv2.convexHull(contour))
-    return output
+def getRect(input_contour):
+    return numpy.int0(cv2.boxPoints(cv2.minAreaRect(input_contour)))
 
 def getCentroid(contour):
     M = cv2.moments(contour)
@@ -56,16 +54,8 @@ def getRectangleTiltSlope(rect):
         return slope(rect[1][0], rect[1][1], rect[2][0], rect[2][1])
 
 
-def getAngle(x, y, xsize, ysize):
+def getRelative(x, y, xsize, ysize):
     return ((float(x)/float(xsize)) -0.5, (float(y)/float(ysize)) -0.5)
-
-
-def handleRectangle(contour, visionTable): 
-    
-    boundingBox = numpy.int0(cv2.boxPoints(cv2.minAreaRect(contour)))
-
-    visionTable.putNumber("centroid", getCentroid(contour)[1])
-    return
 
 def main():
 
@@ -74,6 +64,7 @@ def main():
     # Wait for networktables to connect 
     while not NetworkTables.isConnected():
         print("waiting to connect...")
+        time.sleep(0.5)
         pass
 
     visionTable = NetworkTables.getGlobalTable()
@@ -84,24 +75,56 @@ def main():
     cap = cv2.VideoCapture(-1)
     cap.set(cv2.CAP_PROP_FPS, 30)
 
+    # get dimensions of video feed
+    xsize = vcap.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)   # float
+    ysize = vcap.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) # float
+
     while True:
         frame = cap.read()[1]
-        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (120, 250, 10), (130, 255, 60))
+        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (108, 206, 18), (125, 255, 90))
         closed = close(hsv_thresh)
         if opencvVersion() == 3:
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
         else:
             contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        
-        hulls = convexHull(contours)
-        for contour in hulls: 
-            if cv2.contourArea(contour) > 100:
-                print("rectangle found")
-                handleRectangle(contour,visionTable)
+         
+        rect1 = None
+        rect2 = None
+        contours.sort(key = cv2.contourArea)
+
+        # decide on right rect and left rect (it's the largest one with a slope in the right direction)
+        for contour in contours: 
+            rect = getRect(contour)
+            slope = getRectangleTiltSlope(rect)
+            if slope > 0:
+                cv2.drawContours(frame,[rect],0,(0,0,255),2)
+                rect1 = rect
+                break
+        for contour in contours:
+            rect = getRect(contour)
+            slope = getRectangleTiltSlope(rect)
+            if slope < 0:
+                cv2.drawContours(frame,[rect],0,(0,0,255),2)
+                rect2 = rect
+                break
+
+        # If we have 2 rectangles that fit our requirements
+        if rect1 is not None and rect2 is not None:
+            relative1 = getRelative(getCentroid(rect1), xsize, ysize)
+            visionTable.putNumber("centroid-left-x", getCentroid(rect1)[0])
+            visionTable.putNumber("centroid-left-y", getCentroid(rect1)[0])
+            visionTable.putNumber("centroid-right-x", getCentroid(rect2)[1])
+            visionTable.putNumber("centroid-right-y", getCentroid(rect2)[1])
+            visionTable.putBoolean("valid", True)
+        else:
+            visionTable.putBoolean("valid", False)
+
 
         print("finished cycle")
         cv2.imshow("ok", frame)
-        cv2.waitKey()
+        cv2.imshow("ok2", closed)
+        if cv2.waitKey() ==  ord('q'):
+            break
 
     # When everything done, release the capture
     cap.release()
@@ -109,4 +132,3 @@ def main():
         
 
 main()
-
