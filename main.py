@@ -73,8 +73,10 @@ def main():
         time.sleep(0.5)
         pass
 
+    print("connected")
     visionTable = NetworkTables.getTable("vision")
 
+    print("configuring camera")
     # config camera
     cap = cv2.VideoCapture(-1)
     cap.set(cv2.CAP_PROP_FPS, 30)
@@ -84,9 +86,6 @@ def main():
     # get dimensions of video feed
     xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) 
-
-    # the time since the loop ran
-    oldtime = time.clock()
 
     while True:
         frame = cap.read()[1]
@@ -132,9 +131,8 @@ def main():
             visionTable.putBoolean("valid", True)
         else:
             visionTable.putBoolean("valid", False)
-        
-        # sleep until 
-        time.sleep(math.max(0, 0.3 - (time.clock() - oldtime)))
+
+        print("cycle finished")  
 
     # When everything done, release the capture
     cap.release()
