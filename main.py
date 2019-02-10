@@ -37,6 +37,7 @@ def getCentroid(contour):
         cY = int(M["m01"] / M["m00"])
     else:
         cX, cY = 0, 0
+
     return (cX, cY)
 
 def slope(x1, y1, x2, y2):
@@ -77,7 +78,7 @@ def main():
 
     # config camera
     subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-    subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=15", "--device=/dev/video0"])
+    subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_absolute=15"])
     cap = cv2.VideoCapture(-1)
     cap.set(cv2.CAP_PROP_FPS, 30)
 
@@ -93,7 +94,7 @@ def main():
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
         else:
             contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-         
+
         rect1 = None
         rect2 = None
         contours.sort(key = lambda x: cv2.contourArea(x), reverse=True)
@@ -139,6 +140,6 @@ def main():
     # When everything done, release the capture
     cap.release()
     cv2.destroyAllWindows()
-        
+
 
 main()
