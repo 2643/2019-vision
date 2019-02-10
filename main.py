@@ -77,12 +77,10 @@ def main():
     visionTable = NetworkTables.getGlobalTable()
 
     # config camera
-    # subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-    # subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_absolute=15"])
     cap = cv2.VideoCapture(-1)
     cap.set(cv2.CAP_PROP_FPS, 30)
     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-    cap.set(cv2.CAP_PROP_EXPOSURE, 15)
+    cap.set(cv2.CAP_PROP_EXPOSURE, 5)
 
     # get dimensions of video feed
     xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)   # float
