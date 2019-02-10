@@ -73,7 +73,7 @@ def main():
         time.sleep(0.5)
         pass
 
-    visionTable = NetworkTables.getGlobalTable()
+    visionTable = NetworkTables.getTable("vision")
 
     # config camera
     cap = cv2.VideoCapture(-1)
@@ -84,6 +84,9 @@ def main():
     # get dimensions of video feed
     xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) 
+
+    # the time since the loop ran
+    oldtime = time.clock()
 
     while True:
         frame = cap.read()[1]
@@ -129,17 +132,12 @@ def main():
             visionTable.putBoolean("valid", True)
         else:
             visionTable.putBoolean("valid", False)
-
-
-        print("finished cycle")
-        cv2.imshow("ok", frame)
-        cv2.imshow("o2k", closed)
-        if cv2.waitKey() ==  ord('q'):
-            break
+        
+        # sleep until 
+        time.sleep(math.max(0, 0.3 - (time.clock() - oldtime)))
 
     # When everything done, release the capture
     cap.release()
-    cv2.destroyAllWindows()
 
 
 main()
