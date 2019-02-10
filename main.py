@@ -1,6 +1,5 @@
 import cv2
 import time
-import subprocess
 import math
 import numpy
 from networktables import NetworkTables
@@ -83,12 +82,12 @@ def main():
     cap.set(cv2.CAP_PROP_EXPOSURE, 5)
 
     # get dimensions of video feed
-    xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)   # float
-    ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) # float
+    xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) 
 
     while True:
         frame = cap.read()[1]
-        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (112, 92, 0), (149, 255, 90))
+        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (105, 131, 39), (133, 255, 90))
         closed = close(hsv_thresh)
         if opencvVersion() == 3:
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
@@ -108,6 +107,7 @@ def main():
                 cv2.drawContours(frame,[rect],0,(0,0,255),2)
                 rect1 = rect
                 break
+
         for contour in contours:
             rect = getRect(contour)
             slope = getRectangleTiltSlope(rect)
