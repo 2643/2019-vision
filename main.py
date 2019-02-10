@@ -45,7 +45,13 @@ def slope(x1, y1, x2, y2):
         x1, x2 = x2, x1
         y1, y2 = y2, y1 
 
-    return float(x2 -x1)/(y2 - y1)
+    dx = float(x2 - x1)
+    dy = float(y2 - y1)
+
+    if dx == 0:
+        return 0
+    else: 
+        return dy/dx
 
 def getRectangleTiltSlope(rect):
     if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) < math.hypot(rect[1][0] - rect[2][0], rect[1][1] - rect[2][1]):
@@ -71,17 +77,17 @@ def main():
 
     # config camera
     subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-    subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
+    subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=15", "--device=/dev/video0"])
     cap = cv2.VideoCapture(-1)
     cap.set(cv2.CAP_PROP_FPS, 30)
 
     # get dimensions of video feed
-    xsize = vcap.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)   # float
-    ysize = vcap.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) # float
+    xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)   # float
+    ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) # float
 
     while True:
         frame = cap.read()[1]
-        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (108, 206, 18), (125, 255, 90))
+        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (112, 92, 0), (149, 255, 90))
         closed = close(hsv_thresh)
         if opencvVersion() == 3:
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
@@ -90,7 +96,8 @@ def main():
          
         rect1 = None
         rect2 = None
-        contours.sort(key = cv2.contourArea)
+        contours.sort(key = lambda x: cv2.contourArea(x), reverse=True)
+
 
         # decide on right rect and left rect (it's the largest one with a slope in the right direction)
         for contour in contours: 
@@ -108,13 +115,16 @@ def main():
                 rect2 = rect
                 break
 
-        # If we have 2 rectangles that fit our requirements
-        if rect1 is not None and rect2 is not None:
-            relative1 = getRelative(getCentroid(rect1), xsize, ysize)
-            visionTable.putNumber("centroid-left-x", getCentroid(rect1)[0])
-            visionTable.putNumber("centroid-left-y", getCentroid(rect1)[0])
-            visionTable.putNumber("centroid-right-x", getCentroid(rect2)[1])
-            visionTable.putNumber("centroid-right-y", getCentroid(rect2)[1])
+        # If we have 2 rectangles and they're arranged in the right way
+        if rect1 is not None and rect2 is not None and getCentroid(rect1)[0] < getCentroid(rect2)[0]:
+            centroid1 = getCentroid(rect1)
+            centroid2 = getCentroid(rect2)
+            relative1 = getRelative(centroid1[0], centroid1[1], xsize, ysize)
+            relative2 = getRelative(centroid2[0], centroid2[1], xsize, ysize)
+            visionTable.putNumber("centroid-left-x", relative1[0])
+            visionTable.putNumber("centroid-left-y", relative1[1])
+            visionTable.putNumber("centroid-right-x", relative2[0])
+            visionTable.putNumber("centroid-right-y", relative2[1])
             visionTable.putBoolean("valid", True)
         else:
             visionTable.putBoolean("valid", False)
@@ -122,7 +132,7 @@ def main():
 
         print("finished cycle")
         cv2.imshow("ok", frame)
-        cv2.imshow("ok2", closed)
+        cv2.imshow("o2k", closed)
         if cv2.waitKey() ==  ord('q'):
             break
 
