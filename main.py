@@ -1,5 +1,5 @@
 import cv2
-import subprocess
+import time
 import math
 import numpy
 from networktables import NetworkTables
@@ -15,21 +15,8 @@ def dilate(img, size, iterations):
     kernel = numpy.ones(size,numpy.uint8)
     return cv2.dilate(img,kernel,iterations)
 
-def open(img):
-    opened = erode(img, (5,5), 2)
-    opened = dilate(opened, (5,5), 2)
-    return opened
-
-def close(img):
-    closed = dilate(img, (5,5), 2)
-    closed = erode(closed, (5,5), 2)
-    return closed
-
-def convexHull(input_contours):
-    output = []
-    for contour in input_contours:
-        output.append(cv2.convexHull(contour))
-    return output
+def getRect(input_contour):
+    return numpy.int0(cv2.boxPoints(cv2.minAreaRect(input_contour)))
 
 def getCentroid(contour):
     M = cv2.moments(contour)
@@ -39,15 +26,23 @@ def getCentroid(contour):
         cY = int(M["m01"] / M["m00"])
     else:
         cX, cY = 0, 0
-        return (cX, cY)
+
+    return (cX, cY)
 
 def slope(x1, y1, x2, y2):
     #swap if less
     if x1 > x2:
-        x1, x2 = x2, x1
-        y1, y2 = y2, y1 
+        dx = x1 - x2
+        dy = y1 - y2
+    else:
+        dx = x2 - x1
+        dy = y2 - y1
 
-    return float(x2 -x1)/(y2 - y1)
+
+    if dx == 0:
+        return 0
+    else: 
+        return dy/dx
 
 def getRectangleTiltSlope(rect):
     if math.hypot(rect[0][0] - rect[1][0], rect[0][1] - rect[1][1]) < math.hypot(rect[1][0] - rect[2][0], rect[1][1] - rect[2][1]):
@@ -56,58 +51,98 @@ def getRectangleTiltSlope(rect):
         return slope(rect[1][0], rect[1][1], rect[2][0], rect[2][1])
 
 
-def getAngle(x, y, xsize, ysize):
+def getRelative(x, y, xsize, ysize):
     return ((float(x)/float(xsize)) -0.5, (float(y)/float(ysize)) -0.5)
-
-
-def handleRectangle(contour, rectEntry): 
-    
-    boundingBox = numpy.int0(cv2.boxPoints(cv2.minAreaRect(contour)))
-
-    rectEntry.putNumber("centroid", getCentroid(contour)[1])
-    return
 
 def main():
 
-    NetworkTables.initialize(server="roborio-2643-frc.local")
-    table = NetworkTables.getTable("vision")
+    NetworkTables.initialize(server="10.26.43.2")
 
-    subprocess.run(["v4l2-ctl", "-d", "/dev/video0", "-c", "exposure_auto=1"])
-    subprocess.run(["v4l2-ctl", "--set-ctrl=exposure_absolute=6", "--device=/dev/video0"])
+    # Wait for networktables to connect 
+    while not NetworkTables.isConnected():
+        print("waiting to connect...")
+        time.sleep(0.5)
+        pass
 
+    print("connected")
+    visionTable = NetworkTables.getTable("vision")
+
+    print("configuring camera")
+    # config camera
     cap = cv2.VideoCapture(-1)
     cap.set(cv2.CAP_PROP_FPS, 30)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+    cap.set(cv2.CAP_PROP_EXPOSURE, 2)
+
+    # get dimensions of video feed
+    xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) 
+
+    WINDOW = False
 
     while True:
-        retval, frame = cap.read()
-        if retval is not True:
-            print("pranked")
-        else:
-            print("ok")
+        frame = cap.read()[1]
+        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), 
+                                 (113, 144, 0), 
+                                 (123, 255, 80))
 
+        closed = erode(hsv_thresh, (5,5), 2)
+        closed = dilate(closed, (5,5), 2)
 
-        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (120, 250, 10), (130, 255, 60))
-        closed = close(hsv_thresh)
         if opencvVersion() == 3:
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
         else:
             contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
+        rect1 = None
+        rect2 = None
+        contours.sort(key = lambda x: cv2.contourArea(x), reverse=True)
 
-        hulls = convexHull(contours)
-        for contour in hulls: 
-            if cv2.contourArea(contour) > 100:
-                handleRectangle(contour,table)
 
-        #cv2.imshow('frame3', closed)
-        #cv2.imshow('frame2', frame)
-        #if cv2.waitKey(1) & 0xFF == ord('q'):
-            #break
+        # decide on right rect and left rect (it's the largest one with a slope in the right direction)
+        for contour in contours: 
+            rect = getRect(contour)
+            slope = getRectangleTiltSlope(rect)
+            cv2.drawContours(frame,[rect],0,(255,0,0),2)
+            if slope > 0 and cv2.contourArea(rect) > 0:
+                cv2.drawContours(frame,[rect],0,(0,0,255),2)
+                rect1 = rect
+                break
+
+        for contour in contours:
+            rect = getRect(contour)
+            slope = getRectangleTiltSlope(rect)
+            cv2.drawContours(frame,[rect],0,(255,0,0),2)
+            if slope < -0 and cv2.contourArea(rect) > 0:
+                cv2.drawContours(frame,[rect],0,(0,0,255),2)
+                rect2 = rect
+                break
+
+        # If we have 2 rectangles and they're arranged in the right way
+        if rect1 is not None and rect2 is not None and getCentroid(rect1)[0] < getCentroid(rect2)[0]:
+            centroid1 = getCentroid(rect1)
+            centroid2 = getCentroid(rect2)
+            relative1 = getRelative(centroid1[0], centroid1[1], xsize, ysize)
+            relative2 = getRelative(centroid2[0], centroid2[1], xsize, ysize)
+            visionTable.putNumber("centroid-left-x", relative1[0])
+            visionTable.putNumber("centroid-left-y", relative1[1])
+            visionTable.putNumber("centroid-right-x", relative2[0])
+            visionTable.putNumber("centroid-right-y", relative2[1])
+            visionTable.putBoolean("valid", True)
+        else:
+            visionTable.putBoolean("valid", False)
+
+        if WINDOW:
+            cv2.imshow("ok", frame)
+            cv2.imshow("o2k", closed)
+            if cv2.waitKey() == ord('q'):
+                break
+        
+
+        print("cycle finished")  
 
     # When everything done, release the capture
     cap.release()
-    cv2.destroyAllWindows()
-        
+
 
 main()
-
