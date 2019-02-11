@@ -56,29 +56,33 @@ def getRelative(x, y, xsize, ysize):
 
 def main():
 
+    WINDOW = True
+    NETWORKING = False
+    CONFIGURE = False
+
     NetworkTables.initialize(server="10.26.43.2")
 
-    # Wait for networktables to connect 
-    while not NetworkTables.isConnected():
-        print("waiting to connect...")
-        time.sleep(0.5)
-        pass
+    if NETWORKING:
+        # Wait for networktables to connect 
+        while not NetworkTables.isConnected():
+            print("waiting to connect...")
+            time.sleep(0.5)
+            pass
 
-    print("connected")
-    visionTable = NetworkTables.getTable("vision")
+        print("connected")
+        visionTable = NetworkTables.getTable("vision")
 
-    print("configuring camera")
-    # config camera
-    cap = cv2.VideoCapture(-1)
-    cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-    cap.set(cv2.CAP_PROP_EXPOSURE, 2)
+    if CONFIGURE:
+        print("configuring camera")
+        cap = cv2.VideoCapture(-1)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+        cap.set(cv2.CAP_PROP_EXPOSURE, 2)
 
     # get dimensions of video feed
     xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) 
 
-    WINDOW = False
 
     while True:
         frame = cap.read()[1]
@@ -117,20 +121,20 @@ def main():
                 cv2.drawContours(frame,[rect],0,(0,0,255),2)
                 rect2 = rect
                 break
-
-        # If we have 2 rectangles and they're arranged in the right way
-        if rect1 is not None and rect2 is not None and getCentroid(rect1)[0] < getCentroid(rect2)[0]:
-            centroid1 = getCentroid(rect1)
-            centroid2 = getCentroid(rect2)
-            relative1 = getRelative(centroid1[0], centroid1[1], xsize, ysize)
-            relative2 = getRelative(centroid2[0], centroid2[1], xsize, ysize)
-            visionTable.putNumber("centroid-left-x", relative1[0])
-            visionTable.putNumber("centroid-left-y", relative1[1])
-            visionTable.putNumber("centroid-right-x", relative2[0])
-            visionTable.putNumber("centroid-right-y", relative2[1])
-            visionTable.putBoolean("valid", True)
-        else:
-            visionTable.putBoolean("valid", False)
+        if NETWORKING:
+            # If we have 2 rectangles and they're arranged in the right way
+            if rect1 is not None and rect2 is not None and getCentroid(rect1)[0] < getCentroid(rect2)[0]:
+                centroid1 = getCentroid(rect1)
+                centroid2 = getCentroid(rect2)
+                relative1 = getRelative(centroid1[0], centroid1[1], xsize, ysize)
+                relative2 = getRelative(centroid2[0], centroid2[1], xsize, ysize)
+                visionTable.putNumber("centroid-left-x", relative1[0])
+                visionTable.putNumber("centroid-left-y", relative1[1])
+                visionTable.putNumber("centroid-right-x", relative2[0])
+                visionTable.putNumber("centroid-right-y", relative2[1])
+                visionTable.putBoolean("valid", True)
+            else:
+                visionTable.putBoolean("valid", False)
 
         if WINDOW:
             cv2.imshow("ok", frame)
