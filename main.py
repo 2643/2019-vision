@@ -15,16 +15,6 @@ def dilate(img, size, iterations):
     kernel = numpy.ones(size,numpy.uint8)
     return cv2.dilate(img,kernel,iterations)
 
-def open(img):
-    opened = erode(img, (5,5), 2)
-    opened = dilate(opened, (5,5), 2)
-    return opened
-
-def close(img):
-    closed = dilate(img, (5,5), 2)
-    closed = erode(closed, (5,5), 2)
-    return closed
-
 def getRect(input_contour):
     return numpy.int0(cv2.boxPoints(cv2.minAreaRect(input_contour)))
 
@@ -42,11 +32,12 @@ def getCentroid(contour):
 def slope(x1, y1, x2, y2):
     #swap if less
     if x1 > x2:
-        x1, x2 = x2, x1
-        y1, y2 = y2, y1 
+        dx = x1 - x2
+        dy = y1 - y2
+    else:
+        dx = x2 - x1
+        dy = y2 - y1
 
-    dx = float(x2 - x1)
-    dy = float(y2 - y1)
 
     if dx == 0:
         return 0
@@ -81,16 +72,23 @@ def main():
     cap = cv2.VideoCapture(-1)
     cap.set(cv2.CAP_PROP_FPS, 30)
     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-    cap.set(cv2.CAP_PROP_EXPOSURE, 5)
+    cap.set(cv2.CAP_PROP_EXPOSURE, 2)
 
     # get dimensions of video feed
     xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     ysize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) 
 
+    WINDOW = False
+
     while True:
         frame = cap.read()[1]
-        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), (105, 131, 39), (133, 255, 90))
-        closed = close(hsv_thresh)
+        hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), 
+                                 (113, 144, 0), 
+                                 (123, 255, 80))
+
+        closed = erode(hsv_thresh, (5,5), 2)
+        closed = dilate(closed, (5,5), 2)
+
         if opencvVersion() == 3:
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
         else:
@@ -105,7 +103,8 @@ def main():
         for contour in contours: 
             rect = getRect(contour)
             slope = getRectangleTiltSlope(rect)
-            if slope > 0:
+            cv2.drawContours(frame,[rect],0,(255,0,0),2)
+            if slope > 0 and cv2.contourArea(rect) > 0:
                 cv2.drawContours(frame,[rect],0,(0,0,255),2)
                 rect1 = rect
                 break
@@ -113,7 +112,8 @@ def main():
         for contour in contours:
             rect = getRect(contour)
             slope = getRectangleTiltSlope(rect)
-            if slope < 0:
+            cv2.drawContours(frame,[rect],0,(255,0,0),2)
+            if slope < -0 and cv2.contourArea(rect) > 0:
                 cv2.drawContours(frame,[rect],0,(0,0,255),2)
                 rect2 = rect
                 break
@@ -131,6 +131,13 @@ def main():
             visionTable.putBoolean("valid", True)
         else:
             visionTable.putBoolean("valid", False)
+
+        if WINDOW:
+            cv2.imshow("ok", frame)
+            cv2.imshow("o2k", closed)
+            if cv2.waitKey() == ord('q'):
+                break
+        
 
         print("cycle finished")  
 
