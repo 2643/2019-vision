@@ -58,11 +58,12 @@ def main():
 
     WINDOW = True
     NETWORKING = False
-    CONFIGURE = False
+    CONFIGURE = True
 
     NetworkTables.initialize(server="10.26.43.2")
 
     if NETWORKING:
+        print("connecting to network");
         # Wait for networktables to connect 
         while not NetworkTables.isConnected():
             print("waiting to connect...")
@@ -72,12 +73,14 @@ def main():
         print("connected")
         visionTable = NetworkTables.getTable("vision")
 
+    cap = cv2.VideoCapture(-1)
+
     if CONFIGURE:
         print("configuring camera")
-        cap = cv2.VideoCapture(-1)
         cap.set(cv2.CAP_PROP_FPS, 30)
         cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
         cap.set(cv2.CAP_PROP_EXPOSURE, 2)
+        print("camera configuration complete")
 
     # get dimensions of video feed
     xsize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
