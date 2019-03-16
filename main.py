@@ -77,8 +77,11 @@ def main():
 
     if CONFIGURE:
         print("configuring camera")
+        print("setting fps")
         cap.set(cv2.CAP_PROP_FPS, 30)
+        print("disabling auto exposure");
         cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+        print("setting exposure");
         cap.set(cv2.CAP_PROP_EXPOSURE, 2)
         print("camera configuration complete")
 
