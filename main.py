@@ -90,7 +90,7 @@ def main():
     while True:
         frame = cap.read()[1]
         hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), 
-                                 (113, 144, 0), 
+                                 (113, 89, 0), 
                                  (123, 255, 80))
 
         closed = erode(hsv_thresh, (5,5), 2)
