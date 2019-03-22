@@ -124,29 +124,46 @@ def main():
                 cv2.drawContours(frame,[rect],0,(0,0,255),2)
                 rect2 = rect
                 break
+
+
+        valid = False
+        centroid_left_x = 0.0
+        centroid_left_y = 0.0
+        centroid_right_x = 0.0
+        centroid_right_y = 0.0
+
+        # If we have 2 rectangles and they're arranged in the right way
+        if rect1 is not None and rect2 is not None and getCentroid(rect1)[0] < getCentroid(rect2)[0]:
+            valid = True
+            centroid1 = getCentroid(rect1)
+            centroid2 = getCentroid(rect2)
+            relative1 = getRelative(centroid1[0], centroid1[1], xsize, ysize)
+            relative2 = getRelative(centroid2[0], centroid2[1], xsize, ysize)
+            centroid_left_x = relative1[0]
+            centroid_left_y = relative1[1]
+            centroid_right_x = relative2[0]
+            centroid_right_y = relative2[1]
+        else:
+            valid = False
+
+
+        print("valid: ", valid, " l: ", centroid_left_x, " r: ", centroid_right_x)
+
         if NETWORKING:
-            # If we have 2 rectangles and they're arranged in the right way
-            if rect1 is not None and rect2 is not None and getCentroid(rect1)[0] < getCentroid(rect2)[0]:
-                centroid1 = getCentroid(rect1)
-                centroid2 = getCentroid(rect2)
-                relative1 = getRelative(centroid1[0], centroid1[1], xsize, ysize)
-                relative2 = getRelative(centroid2[0], centroid2[1], xsize, ysize)
-                visionTable.putNumber("centroid-left-x", relative1[0])
-                visionTable.putNumber("centroid-left-y", relative1[1])
-                visionTable.putNumber("centroid-right-x", relative2[0])
-                visionTable.putNumber("centroid-right-y", relative2[1])
-                visionTable.putBoolean("valid", True)
-            else:
-                visionTable.putBoolean("valid", False)
+            # Send the data to the computer
+            visionTable.putNumber("centroid-left-x", centroid_left_x)
+            visionTable.putNumber("centroid-left-y", centroid_left_y)
+            visionTable.putNumber("centroid-right-x", centroid_right_x)
+            visionTable.putNumber("centroid-right-y", centroid_right_y)
+            visionTable.putBoolean("valid", valid)
 
         if WINDOW:
-            cv2.imshow("ok", frame)
-            cv2.imshow("o2k", closed)
+            cv2.imshow("raw_image", frame)
+            cv2.imshow("processed_image", closed)
             if cv2.waitKey() == ord('q'):
                 break
         
 
-        print("cycle finished")  
 
     # When everything done, release the capture
     cap.release()
