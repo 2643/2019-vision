@@ -60,7 +60,6 @@ def main():
     NETWORKING = False
     CONFIGURE = True
 
-    NetworkTables.initialize(server="10.26.43.2")
 
     if NETWORKING:
         print("connecting to network");
@@ -73,16 +72,17 @@ def main():
         print("connected")
         visionTable = NetworkTables.getTable("vision")
 
-    cap = cv2.VideoCapture(-1)
+    cap = cv2.VideoCapture(-1, cv2.CAP_V4L2)
 
     if CONFIGURE:
+        NetworkTables.initialize(server="10.26.43.2")
         print("configuring camera")
         print("setting fps")
         cap.set(cv2.CAP_PROP_FPS, 30)
         print("disabling auto exposure");
-        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
         print("setting exposure");
-        cap.set(cv2.CAP_PROP_EXPOSURE, 0.0005)
+        cap.set(cv2.CAP_PROP_EXPOSURE, 4)
         print("camera configuration complete")
 
     # get dimensions of video feed
@@ -92,12 +92,15 @@ def main():
 
     while True:
         frame = cap.read()[1]
+        frame = cv2.blur(frame, (5,5))
         hsv_thresh = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), 
-                                 (113, 89, 0), 
+                                 (113, 89, 0), # These values are for 4
                                  (123, 255, 80))
 
-        closed = erode(hsv_thresh, (5,5), 2)
-        closed = dilate(closed, (5,5), 2)
+        closed = erode(hsv_thresh, (7,7), 2)
+        closed = dilate(closed, (7,7), 2)
+
+        # closed = hsv_thresh
 
         if opencvVersion() == 3:
             _, contours, _ = cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE);
@@ -113,20 +116,22 @@ def main():
         for contour in contours: 
             rect = getRect(contour)
             slope = getRectangleTiltSlope(rect)
-            cv2.drawContours(frame,[rect],0,(255,0,0),2)
             if slope > 0 and cv2.contourArea(rect) > 0:
                 cv2.drawContours(frame,[rect],0,(0,0,255),2)
                 rect1 = rect
                 break
+            else:
+                cv2.drawContours(frame,[rect],0,(255,0,0),2)
 
         for contour in contours:
             rect = getRect(contour)
             slope = getRectangleTiltSlope(rect)
-            cv2.drawContours(frame,[rect],0,(255,0,0),2)
             if slope < -0 and cv2.contourArea(rect) > 0:
                 cv2.drawContours(frame,[rect],0,(0,0,255),2)
                 rect2 = rect
                 break
+            else:
+                cv2.drawContours(frame,[rect],0,(255,0,0),2)
 
 
         valid = False
@@ -163,7 +168,7 @@ def main():
         if WINDOW:
             cv2.imshow("raw_image", frame)
             cv2.imshow("processed_image", closed)
-            if cv2.waitKey() == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         
 
