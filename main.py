@@ -2,7 +2,7 @@ import cv2
 import time
 import math
 import numpy
-from networktables import NetworkTables
+# from networktables import NetworkTables
 
 def opencvVersion():
     return int(cv2.__version__.split(".")[0])
@@ -63,6 +63,7 @@ def main():
 
     if NETWORKING:
         print("connecting to network");
+        NetworkTables.initialize(server="10.26.43.2")
         # Wait for networktables to connect 
         while not NetworkTables.isConnected():
             print("waiting to connect...")
