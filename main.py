@@ -2,7 +2,7 @@ import cv2
 import time
 import math
 import numpy
-# from networktables import NetworkTables
+from networktables import NetworkTables
 
 def opencvVersion():
     return int(cv2.__version__.split(".")[0])
@@ -73,7 +73,7 @@ def main():
         print("connected")
         visionTable = NetworkTables.getTable("vision")
 
-    cap = cv2.VideoCapture(-1, cv2.CAP_V4L2)
+    cap = cv2.VideoCapture(-1)
 
     if CONFIGURE:
         NetworkTables.initialize(server="10.26.43.2")
